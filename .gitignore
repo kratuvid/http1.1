@@ -1,2 +1,5 @@
+# git treats symbolic links as files, even if they point to directories
+build
+.cache
 build/
 .cache/
