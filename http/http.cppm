@@ -10,7 +10,7 @@ module;
 #include "defines.hpp"
 export module http;
 
-import :exception;
+import :log;
 import :socket;
 import :util;
 

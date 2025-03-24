@@ -9,6 +9,7 @@ module;
 #include "defines.hpp"
 export module http:socket;
 
+import :log;
 import :exception;
 
 namespace http {
@@ -17,14 +18,13 @@ class csocket {
 public:
   csocket(int domain, int type) : m_instance_index(m_instance_counter++) {
     if (!(domain == AF_INET || domain == AF_INET6))
-      QUIT_THROWING("{}: {}", _log_prefix_early(),
+      HTTP_LOG_FATAL("{}: {}", _log_prefix_early(),
                     "Only AF_INET and AF_INET6 are supported");
 
     m_sockfd = socket(domain, type, 0);
     if (m_sockfd == -1)
-      QUIT_ERRNO_THROWING("{}: Socket file descriptor creation failed",
+      HTTP_LOG_FATAL_ERRNO("{}: Socket file descriptor creation failed",
                           _log_prefix_early());
-    m_sockfd = 100;
   }
   csocket(csocket const &) = delete;
   csocket(csocket &&) = default;
@@ -34,7 +34,7 @@ public:
   ~csocket() {
     if (m_sockfd > 0) {
       if (close(m_sockfd) != 0)
-        QUIT_ERRNO_THROWING("{}: Couldn't close file descriptor '{}'",
+        HTTP_LOG_ERROR_ERRNO("{}: Couldn't close file descriptor '{}'",
                             _log_prefix_early(), m_sockfd);
     }
   }
@@ -54,7 +54,7 @@ public:
     auto buf =
         inet_ntop(_get_af(), ptr_sockaddr_in, addr_buf.data(), addr_buf.size());
     if (!buf)
-      QUIT_ERRNO_THROWING(
+      HTTP_LOG_FATAL_ERRNO(
           "{}: Binary to ASCII conversion failed for the IP address",
           _log_prefix_early());
 

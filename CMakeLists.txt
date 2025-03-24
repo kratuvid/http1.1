@@ -50,7 +50,7 @@ add_library(http SHARED)
 target_sources(http PUBLIC FILE_SET CXX_MODULES BASE_DIRS http
   FILES
   http/http.cppm http/util.cppm http/exception.cppm
-  http/socket.cppm
+  http/socket.cppm http/log.cppm
 )
 
 add_executable(hello hello.cpp)
