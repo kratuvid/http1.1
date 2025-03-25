@@ -12,6 +12,7 @@ export module http;
 export import :log;
 export import :socket;
 export import :util;
+export import :exception;
 
 namespace http {
 

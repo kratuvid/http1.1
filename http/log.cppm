@@ -6,8 +6,8 @@ module;
 #include <format>
 #include <iostream>
 #include <limits>
-#include <source_location>
 #include <print>
+#include <source_location>
 
 #include "defines.hpp"
 export module http:log;
@@ -55,6 +55,11 @@ public:
       throw http::exception(std::move(explanation));
     else
       std::println(std::cerr, "{}", explanation);
+  }
+
+  static auto force_disable_escape_codes() -> void {
+    m_is_terminal_tested = true;
+    m_disable_escape_codes = true;
   }
 
 private:

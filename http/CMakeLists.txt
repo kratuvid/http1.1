@@ -9,7 +9,6 @@ target_sources(http PUBLIC FILE_SET CXX_MODULES
   http.cppm util.cppm exception.cppm socket.cppm log.cppm
 )
 
-add_executable(test test.cpp)
-target_link_libraries(test gtest_main gtest http)
-gtest_discover_tests(test)
-
+add_executable(tests tests.cpp)
+target_link_libraries(tests gtest_main gtest http)
+gtest_discover_tests(tests)
