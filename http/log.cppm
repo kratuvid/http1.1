@@ -8,12 +8,15 @@ module;
 #include <limits>
 #include <source_location>
 #include <print>
+
+#include "defines.hpp"
 export module http:log;
 
 import :exception;
 
 namespace http {
 
+HTTP_TEST_CONDITIONAL_EXPORT
 class log {
 public:
   enum class type { info, warning, error, fatal };

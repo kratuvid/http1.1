@@ -9,9 +9,9 @@ module;
 #include "defines.hpp"
 export module http;
 
-import :log;
-import :socket;
-import :util;
+export import :log;
+export import :socket;
+export import :util;
 
 namespace http {
 

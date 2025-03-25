@@ -27,7 +27,7 @@ protected:
 
 
 TEST_F(LogFixture, Empty) {
-  // HTTP_LOG_INFO("Stinky butts");
-  std::cerr << "Stinky butts";
+  HTTP_LOG_INFO("Stinky butts");
+  // std::cerr << "Stinky butts";
   EXPECT_THAT(oss.str(), MatchesRegex(R"(Stinky butts)"));
 }

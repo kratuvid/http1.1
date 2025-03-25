@@ -4,6 +4,18 @@
 #include <limits>
 #include <source_location>
 
+#ifdef NDEBUG
+#define HTTP_TEST_CONDITIONAL_EXPR 0
+#else
+#define HTTP_TEST_CONDITIONAL_EXPR 1
+#endif
+
+#if HTTP_TEST_CONDITIONAL_EXPR == 1
+#define HTTP_TEST_CONDITIONAL_EXPORT export
+#else
+#define HTTP_TEST_CONDITIONAL_EXPORT
+#endif
+
 #define HTTP_UU __attribute__((unused))
 
 #define HTTP_LOG_GENERIC(type, fmt, ...)                                       \
