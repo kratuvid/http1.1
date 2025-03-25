@@ -19,17 +19,26 @@ public:
   csocket(int domain, int type) : m_instance_index(m_instance_counter++) {
     if (!(domain == AF_INET || domain == AF_INET6))
       HTTP_LOG_FATAL("{}: {}", _log_prefix_early(),
-                    "Only AF_INET and AF_INET6 are supported");
+                    "Only AF_INET and AF_INET6 domains are supported");
 
     m_sockfd = socket(domain, type, 0);
     if (m_sockfd == -1)
       HTTP_LOG_FATAL_ERRNO("{}: Socket file descriptor creation failed",
                           _log_prefix_early());
   }
+
   csocket(csocket const &) = delete;
-  csocket(csocket &&) = default;
+  csocket(csocket &&other) { this->operator=(std::move(other)); }
+
   csocket &operator=(csocket const &) = delete;
-  csocket &operator=(csocket &&) = default;
+  csocket &operator=(csocket &&other) {
+    m_sockfd = other.m_sockfd;
+    m_sockaddr = std::move(other.m_sockaddr);
+    m_instance_index = other.m_instance_index;
+    other.m_sockfd = 0;
+    other.m_instance_index = -1;
+    return *this;
+  }
 
   ~csocket() {
     if (m_sockfd > 0) {

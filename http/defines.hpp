@@ -4,6 +4,8 @@
 #include <limits>
 #include <source_location>
 
+#define HTTP_UU __attribute__((unused))
+
 #define HTTP_LOG_GENERIC(type, fmt, ...)                                       \
   http::log::logger(type, std::numeric_limits<int>::min(),                     \
                     std::source_location::current(),                           \
