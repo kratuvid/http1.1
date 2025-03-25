@@ -3,8 +3,8 @@ module;
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <cstring>
 #include <format>
-#include <variant>
 
 #include "defines.hpp"
 export module http:socket;
@@ -14,29 +14,30 @@ import :exception;
 
 namespace http {
 
-class csocket {
+template <int Domain> class _domain_base {
 public:
-  csocket(int domain, int type) : m_instance_index(m_instance_counter++) {
-    if (!(domain == AF_INET || domain == AF_INET6))
-      HTTP_LOG_FATAL("{}: {}", _log_prefix_early(),
-                    "Only AF_INET and AF_INET6 domains are supported");
+  sockaddr_in m_sockaddr{};
+};
+template <> class _domain_base<AF_INET6> {
+public:
+  sockaddr_in6 m_sockaddr{};
+};
 
-    m_sockfd = socket(domain, type, 0);
+template <int Domain, int Type, bool IsServer>
+  requires((Domain == AF_INET || Domain == AF_INET6) &&
+           (Type == SOCK_STREAM || Type == SOCK_DGRAM))
+class csocket : public _domain_base<Domain> {
+public:
+  csocket() : m_instance_index(m_instance_counter++) {
+    m_sockfd = socket(Domain, Type, 0);
     if (m_sockfd == -1)
       HTTP_LOG_FATAL_ERRNO("{}: Socket file descriptor creation failed",
-                          _log_prefix_early());
+                           _log_prefix_early());
 
-    switch (domain) {
-    case AF_INET: {
-      // .._in is the default. just pull and modify it
-      auto &sa = std::get<sockaddr_in>(m_sockaddr);
-      sa.sin_family = AF_INET;
-    } break;
-    case AF_INET6: {
-      sockaddr_in6 sa {};
-      sa.sin6_family = AF_INET6;
-      m_sockaddr = sa;
-    } break;
+    if constexpr (Domain == AF_INET) {
+      this->m_sockaddr.sin_family = AF_INET;
+    } else {
+      this->m_sockaddr.sin6_family = AF_INET6;
     }
   }
 
@@ -46,10 +47,13 @@ public:
   csocket &operator=(csocket const &) = delete;
   csocket &operator=(csocket &&other) {
     m_sockfd = other.m_sockfd;
-    m_sockaddr = std::move(other.m_sockaddr);
+    this->m_sockaddr = other.m_sockaddr;
     m_instance_index = other.m_instance_index;
+
     other.m_sockfd = 0;
+    std::memset(&this->m_sockaddr, 0, sizeof(this->m_sockaddr));
     other.m_instance_index = -1;
+
     return *this;
   }
 
@@ -57,53 +61,40 @@ public:
     if (m_sockfd > 0) {
       if (close(m_sockfd) != 0)
         HTTP_LOG_ERROR_ERRNO("{}: Couldn't close file descriptor '{}'",
-                            _log_prefix_early(), m_sockfd);
+                             _log_prefix_early(), m_sockfd);
     }
   }
 
 public:
   auto get_address_str() const {
     // Max bytes it takes to represent an ASCII IPv6 address
-    std::string addr_buf(16 * 2 + 8 + 1, '\0');
+    std::string address_out(16 * 2 + 7 + 1, '\0');
 
-    const void *ptr_sockaddr_in = nullptr;
-    std::visit(
-        [&ptr_sockaddr_in](auto &&value) {
-          ptr_sockaddr_in = static_cast<const void *>(&value);
-        },
-        m_sockaddr);
-
-    auto buf =
-        inet_ntop(_get_af(), ptr_sockaddr_in, addr_buf.data(), addr_buf.size());
-    if (!buf)
+    const auto out = inet_ntop(Domain, this->m_sockaddr, address_out.data(),
+                               address_out.size());
+    if (!out)
       HTTP_LOG_FATAL_ERRNO(
           "{}: Binary to ASCII conversion failed for the IP address",
           _log_prefix_early());
 
-    return addr_buf;
+    return address_out;
   }
 
   auto get_port() const {
-    if (is_inet4())
-      return std::get<sockaddr_in>(m_sockaddr).sin_port;
-    else
-      return std::get<sockaddr_in6>(m_sockaddr).sin6_port;
+    if constexpr (Domain == AF_INET) {
+      return this->m_sockaddr.sin_port;
+    } else {
+      return this->m_sockaddr.sin6_port;
+    }
   }
 
   auto get_fd() const { return m_sockfd; };
+  auto get_sockaddr() const { return this->m_sockaddr; }
+  auto get_sockaddr_size() const { return this->m_sockaddr; }
 
-  auto get_sockaddr() const { return m_sockaddr; }
-  auto get_sockaddr_size() const {
-    return is_inet4() ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
-  }
-
-  constexpr bool is_inet4() const {
-    return std::holds_alternative<sockaddr_in>(m_sockaddr);
-  }
+  constexpr auto is_ipv4() const { return Domain == AF_INET; }
 
 private:
-  auto _get_af() const -> int { return is_inet4() ? AF_INET : AF_INET6; };
-
   auto _log_prefix_early() const -> std::string {
     return std::format("#{}", m_instance_index);
   }
@@ -115,10 +106,19 @@ private:
 
 private:
   int m_sockfd;
-  std::variant<sockaddr_in, sockaddr_in6> m_sockaddr{};
+  int m_instance_index;
 
   inline static int m_instance_counter = 0;
-  int m_instance_index;
 };
+
+using tcp_server = csocket<AF_INET, SOCK_STREAM, true>;
+using tcp6_server = csocket<AF_INET6, SOCK_STREAM, true>;
+using udp_server = csocket<AF_INET, SOCK_DGRAM, true>;
+using udp6_server = csocket<AF_INET6, SOCK_DGRAM, true>;
+
+using tcp_client = csocket<AF_INET, SOCK_STREAM, false>;
+using tcp6_client = csocket<AF_INET6, SOCK_STREAM, false>;
+using udp_client = csocket<AF_INET, SOCK_DGRAM, false>;
+using udp6_client = csocket<AF_INET6, SOCK_DGRAM, false>;
 
 } // namespace http

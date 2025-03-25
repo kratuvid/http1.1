@@ -32,7 +32,7 @@ export auto testing() -> int {
     QUIT_ERRNO_THROWING("Couldn't connect to name");
    */
 
-  csocket sock(AF_INET, SOCK_STREAM);
+  csocket<AF_INET6, SOCK_STREAM, false> sock;
 
   return 0;
 }
