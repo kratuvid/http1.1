@@ -34,11 +34,6 @@ export auto testing() -> int {
 
   csocket sock(AF_INET, SOCK_STREAM);
 
-  HTTP_LOG_INFO("Hi, how are you?");
-  HTTP_LOG_WARN("Wo ho ho, wait up buddy");
-  HTTP_LOG_ERROR("You're at the point of no return");
-  HTTP_LOG_FATAL("Goodbye!");
-
   return 0;
 }
 

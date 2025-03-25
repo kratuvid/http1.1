@@ -1,4 +1,4 @@
-class LogTest : public testing::Test {
+class Logger : public testing::Test {
 protected:
   void SetUp() override {
     m_cerr_rdbuf = std::cerr.rdbuf();
@@ -14,8 +14,6 @@ protected:
   auto construct_regex(std::string_view type, std::string_view msg) {
     return std::format(R"({1:}:\s.+:\s.+:{0:}\s\s{2:}(:\s.+)?{0:}?)",
                        '\n', type, msg);
-    // return std::format(R"({1:}.*{2:}.*)",
-    //                    '\n', type, msg);
   }
 
 protected:
@@ -24,7 +22,7 @@ protected:
 };
 
 
-TEST_F(LogTest, Empty) {
+TEST_F(Logger, Empty) {
   constexpr std::string_view msg {""};
 
   HTTP_LOG_INFO("{}", msg);
@@ -35,7 +33,7 @@ TEST_F(LogTest, Empty) {
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("INFO", msg)));
 }
 
-TEST_F(LogTest, Info) {
+TEST_F(Logger, Info) {
   // Avoid regex special characters
   constexpr std::string_view msg {R"(Compressing objects: 100% 8/8, done)"};
 
@@ -47,7 +45,7 @@ TEST_F(LogTest, Info) {
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("INFO", msg)));
 }
 
-TEST_F(LogTest, Warning) {
+TEST_F(Logger, Warning) {
   // Avoid regex special characters
   constexpr std::string_view msg {R"(Running low on buffer space)"};
 
@@ -59,7 +57,7 @@ TEST_F(LogTest, Warning) {
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("WARN", msg)));
 }
 
-TEST_F(LogTest, Error) {
+TEST_F(Logger, Error) {
   // Avoid regex special characters
   constexpr std::string_view msg {R"(File descriptor is already invalid)"};
 
@@ -71,7 +69,7 @@ TEST_F(LogTest, Error) {
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("ERROR", msg)));
 }
 
-TEST_F(LogTest, Fatal) {
+TEST_F(Logger, Fatal) {
   // Avoid regex special characters
   constexpr std::string_view msg {R"(Couldn't create the socket)"};
 
@@ -86,6 +84,7 @@ TEST_F(LogTest, Fatal) {
   EXPECT_THAT(actual, MatchesRegex(construct_regex("FATAL", msg)));
 
   m_oss.str("");
+  actual.clear();
   try {
     HTTP_LOG_FATAL_ERRNO("{}", msg);
   } catch (http::exception &e) {

@@ -25,6 +25,19 @@ public:
     if (m_sockfd == -1)
       HTTP_LOG_FATAL_ERRNO("{}: Socket file descriptor creation failed",
                           _log_prefix_early());
+
+    switch (domain) {
+    case AF_INET: {
+      // .._in is the default. just pull and modify it
+      auto &sa = std::get<sockaddr_in>(m_sockaddr);
+      sa.sin_family = AF_INET;
+    } break;
+    case AF_INET6: {
+      sockaddr_in6 sa {};
+      sa.sin6_family = AF_INET6;
+      m_sockaddr = sa;
+    } break;
+    }
   }
 
   csocket(csocket const &) = delete;
@@ -49,7 +62,7 @@ public:
   }
 
 public:
-  auto get_ascii_address() const {
+  auto get_address_str() const {
     // Max bytes it takes to represent an ASCII IPv6 address
     std::string addr_buf(16 * 2 + 8 + 1, '\0');
 
@@ -96,7 +109,7 @@ private:
   }
 
   auto _log_prefix() const -> std::string {
-    return std::format("#{} ({}:{})", m_instance_index, get_ascii_address(),
+    return std::format("#{} ({}:{})", m_instance_index, get_address_str(),
                        get_port());
   }
 
