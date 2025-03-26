@@ -32,7 +32,21 @@ export auto testing() -> int {
     QUIT_ERRNO_THROWING("Couldn't connect to name");
    */
 
-  csocket<AF_INET6, SOCK_STREAM, false> sock;
+  csocket<AF_INET, SOCK_STREAM, false> sk;
+  csocket<AF_INET6, SOCK_STREAM, false> sk6;
+
+  sk.set_address("::1");
+  sk.set_port(1234);
+
+  std::println("sk:");
+  std::println("size: {}", sizeof sk);
+  std::println("address: {}", sk.get_address_str());
+  std::println("port: {}", sk.get_port());
+
+  std::println("sk6:");
+  std::println("size: {}", sizeof sk6);
+  std::println("address: {}", sk6.get_address_str());
+  std::println("port: {}", sk6.get_port());
 
   return 0;
 }
