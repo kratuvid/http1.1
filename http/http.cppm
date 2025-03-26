@@ -35,9 +35,6 @@ export auto testing() -> int {
   csocket<AF_INET, SOCK_STREAM, false> sk;
   csocket<AF_INET6, SOCK_STREAM, false> sk6;
 
-  sk.set_address("::1");
-  sk.set_port(1234);
-
   std::println("sk:");
   std::println("size: {}", sizeof sk);
   std::println("address: {}", sk.get_address_str());

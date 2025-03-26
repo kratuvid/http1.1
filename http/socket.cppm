@@ -15,19 +15,10 @@ import :exception;
 
 namespace http {
 
-template <int Domain> class _domain_base {
-protected:
-  sockaddr_in m_sockaddr{};
-};
-template <> class _domain_base<AF_INET6> {
-protected:
-  sockaddr_in6 m_sockaddr{};
-};
-
 template <int Domain, int Type, bool IsServer>
   requires((Domain == AF_INET || Domain == AF_INET6) &&
            (Type == SOCK_STREAM || Type == SOCK_DGRAM))
-class csocket : public _domain_base<Domain> {
+class csocket {
 public:
   csocket() : m_instance_index(m_instance_counter++) {
     m_sockfd = socket(Domain, Type, 0);
@@ -84,9 +75,9 @@ public:
 
   auto set_address(auto inX_addr) -> void {
     if constexpr (Domain == AF_INET) {
-      inX_addr = htonl(inX_addr);
+      inX_addr.s_addr = htonl(inX_addr.s_addr);
     } else {
-      auto it_as_bytes = static_cast<std::byte *>(&inX_addr);
+      auto it_as_bytes = reinterpret_cast<std::byte *>(&inX_addr);
       std::reverse(it_as_bytes, it_as_bytes + 16);
     }
     set_address_be(inX_addr);
@@ -156,7 +147,8 @@ public:
   }
 
   auto get_port() const {
-    return ntohs(_get_sinX_port());
+    const uint16_t p = _get_sinX_port();
+    return ntohs(p);
     /* if constexpr (Domain == AF_INET) {
       return ntohs(this->m_sockaddr.sin_port);
     } else {
@@ -187,7 +179,7 @@ private:
         static_cast<const csocket *>(this)->_get_sinX_addr());
   }
 
-  const uint16_t &_get_sinX_port() const {
+  auto _get_sinX_port() const -> const uint16_t & {
     if constexpr (Domain == AF_INET) {
       static_assert(
           std::is_same_v<decltype(this->m_sockaddr.sin_port), uint16_t>);
@@ -215,8 +207,9 @@ private:
 
 private:
   int m_sockfd;
-  int m_instance_index;
+  std::conditional_t<Domain == AF_INET, sockaddr_in, sockaddr_in6> m_sockaddr;
 
+  int m_instance_index;
   inline static int m_instance_counter = 0;
 };
 

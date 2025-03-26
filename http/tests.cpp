@@ -11,5 +11,7 @@ import http;
 
 using testing::MatchesRegex;
 
+#if HTTP_TEST_CONDITIONAL_EXPR == 1
 #include "tests/log.inl"
+#endif
 
