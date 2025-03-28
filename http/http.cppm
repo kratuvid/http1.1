@@ -3,8 +3,10 @@ module;
 #include <sys/socket.h>
 
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <print>
+#include <thread>
 
 #include "defines.hpp"
 export module http;
@@ -32,6 +34,7 @@ export auto testing() -> int {
     QUIT_ERRNO_THROWING("Couldn't connect to name");
    */
 
+  /*
   csocket<AF_INET, SOCK_STREAM, false> sk;
   csocket<AF_INET6, SOCK_STREAM, false> sk6;
 
@@ -44,6 +47,17 @@ export auto testing() -> int {
   std::println("size: {}", sizeof sk6);
   std::println("address: {}", sk6.get_address_str());
   std::println("port: {}", sk6.get_port());
+   */
+
+  tcp_client c1("127.0.0.1", 8000);
+  c1.connect();
+
+  /*
+  tcp6_server s1("::1", 8000);
+  s1.bind();
+  s1.listen(8);
+  s1.accept();
+  */
 
   return 0;
 }

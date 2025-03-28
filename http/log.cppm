@@ -43,10 +43,22 @@ public:
     const auto stripped_file_name{
         std::filesystem::path(sl.file_name()).filename()};
 
-    auto explanation{std::format(
-        "{}{}{}: {}({}): {}:\n  {}", _type2color(type), _type2str(type),
-        _reset_attribs(), stripped_file_name.c_str(), sl.line(),
-        sl.function_name(), std::format(fmt, std::forward<Args>(args)...))};
+    const auto brevity_n = static_cast<int>(m_brevity);
+
+    auto explanation{std::format("{}{}{}: ", _type2color(type), _type2str(type),
+                                 _reset_attribs())};
+    if (brevity_n > static_cast<int>(brevity_t::strip_file))
+      explanation += std::format("{}: ", stripped_file_name.c_str(), sl.line());
+    if (brevity_n > static_cast<int>(brevity_t::strip_line))
+      explanation += std::format("{}: ", sl.line());
+    if (brevity_n > static_cast<int>(brevity_t::strip_function))
+      explanation += std::format("{}:\n  ", sl.function_name());
+    explanation += std::format(fmt, std::forward<Args>(args)...);
+
+    /* auto explanation{std::format(
+    "{}{}{}: {}({}): {}:\n  {}", _type2color(type), _type2str(type),
+    _reset_attribs(), stripped_file_name.c_str(), sl.line(),
+    sl.function_name(), std::format(fmt, std::forward<Args>(args)...))}; */
 
     if (errno_val != std::numeric_limits<int>::min())
       explanation += std::format(": {}", std::strerror(errno_val));
@@ -108,6 +120,15 @@ private:
 private:
   inline static bool m_is_terminal_tested = false;
   inline static bool m_disable_escape_codes = true;
+
+public:
+  enum class brevity_t {
+    strip_file,
+    strip_line,
+    strip_function,
+    verbose,
+  };
+  inline static brevity_t m_brevity{brevity_t::strip_file};
 };
 
 }; // namespace http
