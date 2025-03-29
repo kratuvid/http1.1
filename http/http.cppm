@@ -4,12 +4,10 @@ module;
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 
-#include <array>
+#include <vector>
 #include <cerrno>
 #include <cstring>
 #include <print>
-#include <thread>
-#include <vector>
 
 #include "defines.hpp"
 export module http;

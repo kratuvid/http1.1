@@ -1,4 +1,3 @@
-module;
 #include <arpa/inet.h>
 #include <poll.h>
 #include <sys/ioctl.h>
@@ -7,16 +6,12 @@ module;
 #include <array>
 #include <cerrno>
 #include <cstring>
+#include <exception>
 #include <print>
-#include <thread>
+#include <ranges>
 #include <vector>
 
-#include "defines.hpp"
-export module http;
-
-export import :socket;
-export import :util;
-export import :exception;
+import http;
 
 auto to_string_poll_bitmask(uint16_t bits) {
   std::ostringstream repr;
@@ -39,37 +34,14 @@ auto to_string_poll_bitmask(uint16_t bits) {
   return repr.str();
 }
 
-namespace http {
-
-export auto testing(std::vector<std::string_view> const &argv) -> int {
-  /* csocket<AF_INET, SOCK_STREAM, false> sk;
-     csocket<AF_INET6, SOCK_STREAM, false> sk6;
-
-std::println("sk:");
-std::println("size: {}", sizeof sk);
-std::println("address: {}", sk.get_address());
-std::println("port: {}", sk.get_port());
-
-std::println("sk6:");
-std::println("size: {}", sizeof sk6);
-std::println("address: {}", sk6.get_address());
-std::println("port: {}", sk6.get_port());
-   */
-
-  /*
-  tcp6_server s1("::1", 8000);
-  s1.bind();
-  s1.listen(8);
-  s1.accept();
-  */
-
+auto testing(std::vector<std::string_view> const &argv) -> int {
   std::string address{"192.168.60.1"}, data_out{"GET / HTTP/1.1\n\n"};
   if (argv.size() > 0)
     address = argv[0];
   if (argv.size() > 1)
     data_out = argv[1];
 
-  tcp_client c1(address.c_str(), 80);
+  http::tcp_client c1(address.c_str(), 80);
   const auto fd = c1.get_fd();
 
   c1.connect();
@@ -134,4 +106,14 @@ std::println("port: {}", sk6.get_port());
   return 0;
 }
 
-} // namespace http
+auto main(int argc, char **argv) -> int {
+  try {
+    std::vector<std::string_view> vargv;
+    for (int i : std::views::iota(1, argc))
+      vargv.push_back(argv[i]);
+    return testing(vargv);
+  } catch (std::exception &e) {
+    std::println(stderr, "Exception: {}", e.what());
+    return 1;
+  }
+}

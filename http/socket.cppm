@@ -310,15 +310,17 @@ private:
   inline static int m_instance_counter = 0;
 };
 
-using tcp_server = csocket<AF_INET, SOCK_STREAM, true>;
-using tcp6_server = csocket<AF_INET6, SOCK_STREAM, true>;
-using udp_server = csocket<AF_INET, SOCK_DGRAM, true>;
-using udp6_server = csocket<AF_INET6, SOCK_DGRAM, true>;
+export {
+  using tcp_server = csocket<AF_INET, SOCK_STREAM, true>;
+  using tcp6_server = csocket<AF_INET6, SOCK_STREAM, true>;
+  using udp_server = csocket<AF_INET, SOCK_DGRAM, true>;
+  using udp6_server = csocket<AF_INET6, SOCK_DGRAM, true>;
 
-using tcp_client = csocket<AF_INET, SOCK_STREAM, false>;
-using tcp6_client = csocket<AF_INET6, SOCK_STREAM, false>;
-using udp_client = csocket<AF_INET, SOCK_DGRAM, false>;
-using udp6_client = csocket<AF_INET6, SOCK_DGRAM, false>;
+  using tcp_client = csocket<AF_INET, SOCK_STREAM, false>;
+  using tcp6_client = csocket<AF_INET6, SOCK_STREAM, false>;
+  using udp_client = csocket<AF_INET, SOCK_DGRAM, false>;
+  using udp6_client = csocket<AF_INET6, SOCK_DGRAM, false>;
+}
 
 } // namespace http
 
@@ -340,7 +342,7 @@ auto _format(auto &&obj, FmtContext &ctx) {
   return std::ranges::copy(std::move(formatted), ctx.out()).out;
 }
 
-template <> struct std::formatter<in_addr, char> {
+export template <> struct std::formatter<in_addr, char> {
   template <typename ParseContext> constexpr auto parse(ParseContext &ctx) {
     auto result = _parse('4', ctx);
     if (!result)
@@ -354,7 +356,7 @@ template <> struct std::formatter<in_addr, char> {
   }
 };
 
-template <> struct std::formatter<in6_addr, char> {
+export template <> struct std::formatter<in6_addr, char> {
   template <typename ParseContext> constexpr auto parse(ParseContext &ctx) {
     auto result = _parse('6', ctx);
     if (!result)

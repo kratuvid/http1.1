@@ -13,3 +13,6 @@ target_link_libraries(http logger)
 add_executable(tests tests.cpp)
 target_link_libraries(tests gtest_main gtest http)
 gtest_discover_tests(tests)
+
+add_executable(one-off one-off.cpp)
+target_link_libraries(one-off http logger)
