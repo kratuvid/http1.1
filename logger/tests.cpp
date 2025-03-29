@@ -10,13 +10,13 @@ import logger;
 
 using testing::MatchesRegex;
 
-class LoggerTest : public testing::Test {
+class Logger : public testing::Test {
 protected:
   void SetUp() override {
     m_cerr_rdbuf = std::cerr.rdbuf();
     std::cerr.rdbuf(m_oss.rdbuf());
 
-    logger_generic_t::force_disable_escape_codes();
+    logger::force_disable_escape_codes();
   }
 
   void TearDown() override {
@@ -34,7 +34,7 @@ protected:
 };
 
 
-TEST_F(LoggerTest, Empty) {
+TEST_F(Logger, Empty) {
   constexpr std::string_view msg {""};
 
   LOG_INFO("{}", msg);
@@ -45,7 +45,7 @@ TEST_F(LoggerTest, Empty) {
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("INFO", msg)));
 }
 
-TEST_F(LoggerTest, Info) {
+TEST_F(Logger, Info) {
   // Avoid regex special characters
   constexpr std::string_view msg {R"(Compressing objects: 100% 8/8, done)"};
 
@@ -57,7 +57,7 @@ TEST_F(LoggerTest, Info) {
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("INFO", msg)));
 }
 
-TEST_F(LoggerTest, Warning) {
+TEST_F(Logger, Warning) {
   // Avoid regex special characters
   constexpr std::string_view msg {R"(Running low on buffer space)"};
 
@@ -69,7 +69,7 @@ TEST_F(LoggerTest, Warning) {
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("WARN", msg)));
 }
 
-TEST_F(LoggerTest, Error) {
+TEST_F(Logger, Error) {
   // Avoid regex special characters
   constexpr std::string_view msg {R"(File descriptor is already invalid)"};
 
@@ -81,7 +81,7 @@ TEST_F(LoggerTest, Error) {
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("ERROR", msg)));
 }
 
-TEST_F(LoggerTest, Fatal) {
+TEST_F(Logger, Fatal) {
   // Avoid regex special characters
   constexpr std::string_view msg {R"(Couldn't create the socket)"};
 

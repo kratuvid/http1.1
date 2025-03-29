@@ -324,7 +324,7 @@ using udp6_client = csocket<AF_INET6, SOCK_DGRAM, false>;
 
 // std::formatter specializations
 template <typename ParseContext>
-constexpr auto _formatter_inX_addr_parse(char identifier, ParseContext &ctx) {
+constexpr auto _parse(char identifier, ParseContext &ctx) {
   auto it = ctx.begin();
   if (it != ctx.end() && *it != '}')
     std::unexpected{
@@ -333,7 +333,7 @@ constexpr auto _formatter_inX_addr_parse(char identifier, ParseContext &ctx) {
 }
 
 template <size_t BufferSize, int Domain, typename FmtContext>
-auto _formatter_inX_addr_format(auto &&obj, FmtContext &ctx) {
+auto _format(auto &&obj, FmtContext &ctx) {
   std::string formatted(BufferSize, '\0');
   inet_ntop(Domain, &obj, formatted.data(), formatted.size());
   formatted.resize(std::strlen(formatted.c_str()));
@@ -342,7 +342,7 @@ auto _formatter_inX_addr_format(auto &&obj, FmtContext &ctx) {
 
 template <> struct std::formatter<in_addr, char> {
   template <typename ParseContext> constexpr auto parse(ParseContext &ctx) {
-    auto result = _formatter_inX_addr_parse('4', ctx);
+    auto result = _parse('4', ctx);
     if (!result)
       throw std::format_error(std::move(result.error()));
     return result.value();
@@ -350,13 +350,13 @@ template <> struct std::formatter<in_addr, char> {
 
   template <typename FmtContext>
   auto format(auto &&obj, FmtContext &ctx) const {
-    return _formatter_inX_addr_format<INET_ADDRSTRLEN, AF_INET>(obj, ctx);
+    return _format<INET_ADDRSTRLEN, AF_INET>(obj, ctx);
   }
 };
 
 template <> struct std::formatter<in6_addr, char> {
   template <typename ParseContext> constexpr auto parse(ParseContext &ctx) {
-    auto result = _formatter_inX_addr_parse('6', ctx);
+    auto result = _parse('6', ctx);
     if (!result)
       throw std::format_error(std::move(result.error()));
     return result.value();
@@ -364,6 +364,6 @@ template <> struct std::formatter<in6_addr, char> {
 
   template <typename FmtContext>
   auto format(auto &&obj, FmtContext &ctx) const {
-    return _formatter_inX_addr_format<INET6_ADDRSTRLEN, AF_INET6>(obj, ctx);
+    return _format<INET6_ADDRSTRLEN, AF_INET6>(obj, ctx);
   }
 };
