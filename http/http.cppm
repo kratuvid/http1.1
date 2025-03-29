@@ -1,12 +1,15 @@
 module;
 #include <arpa/inet.h>
+#include <poll.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 
+#include <array>
 #include <cerrno>
-#include <chrono>
 #include <cstring>
 #include <print>
 #include <thread>
+#include <vector>
 
 #include "defines.hpp"
 export module http;
@@ -16,41 +19,43 @@ export import :socket;
 export import :util;
 export import :exception;
 
+auto to_string_poll_bitmask(uint16_t bits) {
+  std::ostringstream repr;
+
+#define _ELEM(x) std::make_pair<uint16_t, std::string_view>(x, #x)
+  static constexpr std::array map{
+      _ELEM(POLLIN),  _ELEM(POLLRDNORM), _ELEM(POLLRDBAND), _ELEM(POLLPRI),
+      _ELEM(POLLOUT), _ELEM(POLLWRNORM), _ELEM(POLLWRBAND), _ELEM(POLLERR),
+      _ELEM(POLLHUP), _ELEM(POLLNVAL)};
+#undef _ELEM
+
+  for (auto [mask, str] : map) {
+    if (mask & bits) {
+      if (!repr.view().empty())
+        repr << " | ";
+      repr << str;
+    }
+  }
+
+  return repr.str();
+}
+
 namespace http {
 
-export auto testing() -> int {
-  /*
-  const auto sock = socket(AF_INET, SOCK_STREAM, 0);
-  if (sock == -1)
-    QUIT_ERRNO_THROWING("Socket creation failed");
+export auto testing(std::vector<std::string_view> const &argv) -> int {
+  /* csocket<AF_INET, SOCK_STREAM, false> sk;
+     csocket<AF_INET6, SOCK_STREAM, false> sk6;
 
-  sockaddr_in addr{};
-  addr.sin_port = htons(80);
-  addr.sin_family = AF_INET;
-  if (inet_pton(addr.sin_family, "23.215.0.13", &addr.sin_addr) != 1)
-    QUIT_THROWING("Couldn't convert IP from string to binary");
+std::println("sk:");
+std::println("size: {}", sizeof sk);
+std::println("address: {}", sk.get_address());
+std::println("port: {}", sk.get_port());
 
-  if (connect(sock, (sockaddr *)&addr, sizeof(addr)) != 0)
-    QUIT_ERRNO_THROWING("Couldn't connect to name");
+std::println("sk6:");
+std::println("size: {}", sizeof sk6);
+std::println("address: {}", sk6.get_address());
+std::println("port: {}", sk6.get_port());
    */
-
-  /*
-  csocket<AF_INET, SOCK_STREAM, false> sk;
-  csocket<AF_INET6, SOCK_STREAM, false> sk6;
-
-  std::println("sk:");
-  std::println("size: {}", sizeof sk);
-  std::println("address: {}", sk.get_address_str());
-  std::println("port: {}", sk.get_port());
-
-  std::println("sk6:");
-  std::println("size: {}", sizeof sk6);
-  std::println("address: {}", sk6.get_address_str());
-  std::println("port: {}", sk6.get_port());
-   */
-
-  tcp_client c1("127.0.0.1", 8000);
-  c1.connect();
 
   /*
   tcp6_server s1("::1", 8000);
@@ -58,6 +63,74 @@ export auto testing() -> int {
   s1.listen(8);
   s1.accept();
   */
+
+  std::string address{"192.168.60.1"}, data_out{"GET / HTTP/1.1\n\n"};
+  if (argv.size() > 0)
+    address = argv[0];
+  if (argv.size() > 1)
+    data_out = argv[1];
+
+  tcp_client c1(address.c_str(), 80);
+  const auto fd = c1.get_fd();
+
+  c1.connect();
+
+  int status = 0;
+
+  status = send(fd, data_out.c_str(), data_out.size(), 0);
+  std::println("send(): written {}/{} bytes", status, data_out.size());
+
+  std::string data_in;
+
+  try {
+    while (true) {
+      // Check if anything is available to read
+      pollfd fds[1]{};
+      fds[0].fd = fd;
+      fds[0].events = POLLIN;
+
+      std::println("\nevents: {}", to_string_poll_bitmask(fds[0].events));
+      status = poll(fds, 1, -1);
+      std::println("poll(): revents: {}",
+                   to_string_poll_bitmask(fds[0].revents));
+
+      if (status > 0)
+        std::println("poll(): {} events selected", status);
+      else if (status == 0)
+        throw std::runtime_error(std::format("poll(): timed-out"));
+      else if (status == -1)
+        throw std::runtime_error(
+            std::format("poll(): error: {}", std::strerror(errno)));
+
+      if (fds[0].revents & POLLHUP)
+        throw std::runtime_error(std::format("poll(): POLLHUP"));
+      else if (fds[0].revents & POLLERR)
+        throw std::runtime_error(std::format("poll(): POLLERR"));
+
+      // How much?
+      int bytes_available{};
+      if (ioctl(fd, FIONREAD, &bytes_available) == -1)
+        throw std::runtime_error(
+            std::format("ioctl(): error: {}", std::strerror(errno)));
+      std::println("ioctl(): {} bytes available", bytes_available);
+
+      // Read it
+      auto prev_size = data_in.size();
+      data_in.resize(data_in.size() + bytes_available);
+      status = recv(fd, data_in.data() + prev_size, bytes_available, 0);
+      if (status == -1)
+        throw std::runtime_error(
+            std::format("recv(): error: {}", std::strerror(errno)));
+      else if (status == 0)
+        throw std::runtime_error(std::format("recv(): peer has shut down"));
+      std::println("recv(): read {}/{} bytes", status, bytes_available);
+
+      // std::this_thread::sleep_for(std::chrono::seconds(2));
+    }
+  } catch (...) {
+    std::println("\nReceived:\n{}", data_in);
+    throw;
+  }
 
   return 0;
 }

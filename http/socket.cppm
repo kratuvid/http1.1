@@ -222,28 +222,7 @@ public:
   }
 
   auto get_address() const { return _get_sinX_addr(); };
-
-  auto get_address_str() const {
-    std::string address_out;
-    if constexpr (Domain == AF_INET) {
-      address_out.resize(INET_ADDRSTRLEN);
-    } else {
-      address_out.resize(INET6_ADDRSTRLEN);
-    }
-
-    const void *const p_sinX_addr = &_get_sinX_addr();
-
-    const auto out =
-        inet_ntop(Domain, p_sinX_addr, address_out.data(), address_out.size());
-    if (!out)
-      HTTP_LOG_FATAL_ERRNO(
-          "{}: Binary to ASCII conversion failed for the IP address",
-          _log_prefix_early());
-
-    address_out.resize(std::strlen(address_out.c_str()));
-
-    return address_out;
-  }
+  auto get_address_str() const { return std::format("{}", _get_sinX_addr()); }
 
   auto get_port() const {
     const uint16_t p = _get_sinX_port();
