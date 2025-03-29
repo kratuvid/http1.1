@@ -1,10 +1,22 @@
-class Logger : public testing::Test {
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+
+#include <format>
+#include <iostream>
+#include <sstream>
+
+#include "defines.hpp"
+import logger;
+
+using testing::MatchesRegex;
+
+class LoggerTest : public testing::Test {
 protected:
   void SetUp() override {
     m_cerr_rdbuf = std::cerr.rdbuf();
     std::cerr.rdbuf(m_oss.rdbuf());
 
-    http::log::force_disable_escape_codes();
+    logger_generic_t::force_disable_escape_codes();
   }
 
   void TearDown() override {
@@ -22,61 +34,61 @@ protected:
 };
 
 
-TEST_F(Logger, Empty) {
+TEST_F(LoggerTest, Empty) {
   constexpr std::string_view msg {""};
 
-  HTTP_LOG_INFO("{}", msg);
+  LOG_INFO("{}", msg);
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("INFO", msg)));
 
   m_oss.str("");
-  HTTP_LOG_INFO_ERRNO("{}", msg);
+  LOG_INFO_ERRNO("{}", msg);
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("INFO", msg)));
 }
 
-TEST_F(Logger, Info) {
+TEST_F(LoggerTest, Info) {
   // Avoid regex special characters
   constexpr std::string_view msg {R"(Compressing objects: 100% 8/8, done)"};
 
-  HTTP_LOG_INFO("{}", msg);
+  LOG_INFO("{}", msg);
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("INFO", msg)));
 
   m_oss.str("");
-  HTTP_LOG_INFO_ERRNO("{}", msg);
+  LOG_INFO_ERRNO("{}", msg);
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("INFO", msg)));
 }
 
-TEST_F(Logger, Warning) {
+TEST_F(LoggerTest, Warning) {
   // Avoid regex special characters
   constexpr std::string_view msg {R"(Running low on buffer space)"};
 
-  HTTP_LOG_WARN("{}", msg);
+  LOG_WARN("{}", msg);
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("WARN", msg)));
 
   m_oss.str("");
-  HTTP_LOG_WARN_ERRNO("{}", msg);
+  LOG_WARN_ERRNO("{}", msg);
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("WARN", msg)));
 }
 
-TEST_F(Logger, Error) {
+TEST_F(LoggerTest, Error) {
   // Avoid regex special characters
   constexpr std::string_view msg {R"(File descriptor is already invalid)"};
 
-  HTTP_LOG_ERROR("{}", msg);
+  LOG_ERROR("{}", msg);
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("ERROR", msg)));
 
   m_oss.str("");
-  HTTP_LOG_ERROR_ERRNO("{}", msg);
+  LOG_ERROR_ERRNO("{}", msg);
   EXPECT_THAT(m_oss.view(), MatchesRegex(construct_regex("ERROR", msg)));
 }
 
-TEST_F(Logger, Fatal) {
+TEST_F(LoggerTest, Fatal) {
   // Avoid regex special characters
   constexpr std::string_view msg {R"(Couldn't create the socket)"};
 
   std::string actual;
   try {
-    HTTP_LOG_FATAL("{}", msg);
-  } catch (http::exception &e) {
+    LOG_FATAL("{}", msg);
+  } catch (std::exception &e) {
     actual = e.what();
   } catch (...) {
     FAIL();
@@ -86,8 +98,8 @@ TEST_F(Logger, Fatal) {
   m_oss.str("");
   actual.clear();
   try {
-    HTTP_LOG_FATAL_ERRNO("{}", msg);
-  } catch (http::exception &e) {
+    LOG_FATAL_ERRNO("{}", msg);
+  } catch (std::exception &e) {
     actual = e.what();
   } catch (...) {
     FAIL();

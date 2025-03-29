@@ -2,30 +2,32 @@ module;
 #include <unistd.h>
 
 #include <cstring>
+#include <exception>
 #include <filesystem>
 #include <format>
 #include <iostream>
 #include <limits>
 #include <print>
 #include <source_location>
+export module logger;
 
-#include "defines.hpp"
-export module http:log;
-
-import :exception;
-
-namespace http {
-
-HTTP_TEST_CONDITIONAL_EXPORT
-class log {
+export template <typename Exception>
+  requires(std::is_base_of_v<std::exception, Exception>)
+class logger {
 public:
-  enum class type { info, warning, error, fatal };
+  enum class type_t { info, warning, error, fatal };
+  enum class brevity_t {
+    strip_file,
+    strip_line,
+    strip_function,
+    verbose,
+  };
 
 public:
   template <typename... Args>
   [[gnu::noinline]]
-  static auto logger(log::type type, int errno_val, std::source_location sl,
-                     std::format_string<Args...> fmt, Args &&...args) -> void {
+  static auto log(type_t type, int errno_val, std::source_location sl,
+                  std::format_string<Args...> fmt, Args &&...args) -> void {
     if (!m_is_terminal_tested) {
       if (isatty(2)) {
         const auto term_raw = std::getenv("TERM");
@@ -55,16 +57,11 @@ public:
       explanation += std::format("{}:\n  ", sl.function_name());
     explanation += std::format(fmt, std::forward<Args>(args)...);
 
-    /* auto explanation{std::format(
-    "{}{}{}: {}({}): {}:\n  {}", _type2color(type), _type2str(type),
-    _reset_attribs(), stripped_file_name.c_str(), sl.line(),
-    sl.function_name(), std::format(fmt, std::forward<Args>(args)...))}; */
-
     if (errno_val != std::numeric_limits<int>::min())
       explanation += std::format(": {}", std::strerror(errno_val));
 
-    if (type == log::type::fatal)
-      throw http::exception(std::move(explanation));
+    if (type == type_t::fatal)
+      throw Exception(std::move(explanation));
     else
       std::println(std::cerr, "{}", explanation);
   }
@@ -75,15 +72,15 @@ public:
   }
 
 private:
-  static auto _type2str(log::type t) -> const char * {
+  static auto _type2str(type_t t) -> const char * {
     switch (t) {
-    case type::info:
+    case type_t::info:
       return "INFO";
-    case type::warning:
+    case type_t::warning:
       return "WARN";
-    case type::error:
+    case type_t::error:
       return "ERROR";
-    case type::fatal:
+    case type_t::fatal:
       return "FATAL";
     }
   };
@@ -91,18 +88,18 @@ private:
 #define _X_CSI "\x1b["
 #define _X_FG _X_CSI "38;5;"
 
-  static auto _type2color(log::type t) -> const char * {
+  static auto _type2color(type_t t) -> const char * {
     if (m_disable_escape_codes)
       return "";
 
     switch (t) {
-    case type::info:
+    case type_t::info:
       return _X_FG "244m"; // bright grey
-    case type::warning:
+    case type_t::warning:
       return _X_FG "11m"; // bright yellow
-    case type::error:
+    case type_t::error:
       return _X_FG "208m"; // bright orange
-    case type::fatal:
+    case type_t::fatal:
       return _X_FG "9m"; // bright red
     }
   }
@@ -122,13 +119,5 @@ private:
   inline static bool m_disable_escape_codes = true;
 
 public:
-  enum class brevity_t {
-    strip_file,
-    strip_line,
-    strip_function,
-    verbose,
-  };
   inline static brevity_t m_brevity{brevity_t::strip_file};
 };
-
-}; // namespace http

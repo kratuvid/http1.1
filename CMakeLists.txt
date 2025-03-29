@@ -54,7 +54,8 @@ project(http1.1 LANGUAGES CXX)
 
 include(GoogleTest)
 
+add_subdirectory(logger)
 add_subdirectory(http)
 
 add_executable(hello hello.cpp)
-target_link_libraries(hello http)
+target_link_libraries(hello http logger)

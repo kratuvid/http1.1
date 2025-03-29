@@ -11,7 +11,7 @@ module;
 #include "defines.hpp"
 export module http:socket;
 
-import :log;
+import logger;
 import :exception;
 
 namespace http {
