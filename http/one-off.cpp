@@ -13,9 +13,7 @@
 
 import http;
 
-auto to_string_poll_bitmask(uint16_t bits) {
-  std::ostringstream repr;
-
+auto to_string_poll_events(uint16_t bits) {
 #define _ELEM(x) std::make_pair<uint16_t, std::string_view>(x, #x)
   static constexpr std::array map{
       _ELEM(POLLIN),  _ELEM(POLLRDNORM), _ELEM(POLLRDBAND), _ELEM(POLLPRI),
@@ -23,23 +21,26 @@ auto to_string_poll_bitmask(uint16_t bits) {
       _ELEM(POLLHUP), _ELEM(POLLNVAL)};
 #undef _ELEM
 
+  std::string repr;
+  
   for (auto [mask, str] : map) {
     if (mask & bits) {
-      if (!repr.view().empty())
-        repr << " | ";
-      repr << str;
+      if (!repr.empty())
+        repr += " | ";
+      repr += str;
     }
   }
 
-  return repr.str();
+  return repr.empty() ? "0" : repr;
 }
 
 auto testing(std::vector<std::string_view> const &argv) -> int {
-  std::string address{"192.168.60.1"}, data_out{"GET / HTTP/1.1\n\n"};
+  std::string address{"192.168.60.1"}, data_out{"GET / HTTP/1.1"};
   if (argv.size() > 0)
     address = argv[0];
   if (argv.size() > 1)
     data_out = argv[1];
+  data_out += "\r\n\r\n";
 
   http::tcp_client c1(address.c_str(), 80);
   const auto fd = c1.get_fd();
@@ -60,10 +61,10 @@ auto testing(std::vector<std::string_view> const &argv) -> int {
       fds[0].fd = fd;
       fds[0].events = POLLIN;
 
-      std::println("\nevents: {}", to_string_poll_bitmask(fds[0].events));
+      std::println("\nevents: {}", to_string_poll_events(fds[0].events));
       status = poll(fds, 1, -1);
       std::println("poll(): revents: {}",
-                   to_string_poll_bitmask(fds[0].revents));
+                   to_string_poll_events(fds[0].revents));
 
       if (status > 0)
         std::println("poll(): {} events selected", status);
@@ -99,7 +100,7 @@ auto testing(std::vector<std::string_view> const &argv) -> int {
       // std::this_thread::sleep_for(std::chrono::seconds(2));
     }
   } catch (...) {
-    std::println("\nReceived:\n{}", data_in);
+    std::println("\nReceived ({} bytes):\n{}", data_in.size(), data_in);
     throw;
   }
 
@@ -108,9 +109,8 @@ auto testing(std::vector<std::string_view> const &argv) -> int {
 
 auto main(int argc, char **argv) -> int {
   try {
-    std::vector<std::string_view> vargv;
-    for (int i : std::views::iota(1, argc))
-      vargv.push_back(argv[i]);
+    std::vector<std::string_view> vargv(argc-1);
+    std::copy(argv + 1, argv + argc, vargv.begin());
     return testing(vargv);
   } catch (std::exception &e) {
     std::println(stderr, "Exception: {}", e.what());
