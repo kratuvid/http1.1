@@ -11,6 +11,8 @@ module;
 #include <source_location>
 export module logger;
 
+import terminfo;
+
 #define ANSI_CSI "\x1b["
 #define ANSI_FG ANSI_CSI "38;5;"
 
@@ -81,14 +83,10 @@ auto log(type_t type, int errno_val, std::source_location sl,
          std::format_string<Args...> fmt, Args &&...args) -> void {
   if (!m_is_terminal_tested) {
     if (isatty(2)) {
-      const auto term_raw = std::getenv("TERM");
-      if (term_raw) {
-        const auto term = std::string_view(term_raw);
-        const auto npos = decltype(term)::npos;
-        if (term.find("color") != npos || term.find("direct") != npos) {
-          m_disable_escape_codes = false;
-        }
-      }
+      const auto max_colors = terminfo::reader().get_numerical_property(
+          terminfo::numerical_property_t::max_colors);
+      if (max_colors >= 256)
+        m_disable_escape_codes = false;
     }
     m_is_terminal_tested = true;
   }

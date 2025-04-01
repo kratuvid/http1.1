@@ -7,6 +7,7 @@ add_library(logger SHARED)
 target_sources(logger PUBLIC FILE_SET CXX_MODULES
   FILES logger.cppm
 )
+target_link_libraries(logger terminfo)
 
 add_executable(logger_tests tests.cpp)
 target_link_libraries(logger_tests gtest_main gtest logger)
