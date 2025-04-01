@@ -59,4 +59,4 @@ add_subdirectory(terminfo)
 add_subdirectory(http)
 
 add_executable(hello hello.cpp)
-target_link_libraries(hello http logger)
+target_link_libraries(hello http logger terminfo)
