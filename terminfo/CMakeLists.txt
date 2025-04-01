@@ -9,6 +9,9 @@ target_sources(terminfo PUBLIC FILE_SET CXX_MODULES
 )
 target_link_libraries(terminfo)
 
+add_executable(max_colors max_colors.cpp)
+target_link_libraries(max_colors terminfo)
+
 add_executable(terminfo_tests tests.cpp)
 target_link_libraries(terminfo_tests gtest_main gtest terminfo)
 gtest_discover_tests(terminfo_tests)

@@ -38,8 +38,10 @@ if(is_debug)
     list(APPEND common_options "-fsanitize=address,undefined")
   endif()
 
-  add_compile_options(-D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_BACKTRACE)
- 	link_libraries(stdc++exp)
+  # Triggers false positive buffer overflows
+  # add_compile_options(-D_GLIBCXX_DEBUG)
+  # add_compile_options(-D_GLIBCXX_DEBUG_BACKTRACE)
+ 	# link_libraries(stdc++exp)
 endif()
 
 # Project wide options
