@@ -2,15 +2,21 @@
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <netdb.h>
+#include <sys/types.h>
 
 #include <array>
 #include <cerrno>
 #include <cstring>
 #include <exception>
 #include <print>
-#include <ranges>
+#include <string>
 #include <vector>
+#include <ranges>
 
+#include "defines.hpp"
+
+import logger;
 import http;
 
 auto to_string_poll_events(uint16_t bits) {
@@ -35,19 +41,44 @@ auto to_string_poll_events(uint16_t bits) {
 }
 
 auto testing(std::vector<std::string_view> const &argv) -> int {
-  std::string address{"192.168.60.1"}, data_out{"GET / HTTP/1.1"};
-  if (argv.size() > 0)
-    address = argv[0];
-  if (argv.size() > 1)
-    data_out = argv[1];
-  data_out += "\r\n\r\n";
+  int status = 0;
 
-  http::tcp_client c1(address.c_str(), 80);
+  std::string hostname{"google.com"};
+  std::string data_out{"GET / HTTP/1.1\r\n"};
+  int port = 80;
+
+  if (argv.size() >= 1)
+    hostname = argv[0];
+  if (argv.size() >= 2)
+    port = std::atoi(argv[1].data());
+  if (argv.size() >= 3)
+    data_out.clear();
+
+  for (size_t i = 2; i < argv.size(); i++) {
+    data_out += std::format("{}\r\n", argv[i]);
+  }
+  data_out += "Host: " + hostname + "\r\n";
+  data_out += "Connection: close\r\n";
+  data_out += "\r\n";
+
+  addrinfo *ai{};
+
+  addrinfo hints{};
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  status = getaddrinfo(hostname.c_str(), nullptr, &hints, &ai);
+
+  if (status != 0)
+    HTTP_LOG_FATAL("getaddrinfo failed: {}", gai_strerror(status));
+
+  const auto addr_raw = reinterpret_cast<sockaddr_in*>(ai->ai_addr)->sin_addr;
+
+  freeaddrinfo(ai);
+
+  http::tcp_client c1(addr_raw, htons(port));
   const auto fd = c1.get_fd();
 
   c1.connect();
-
-  int status = 0;
 
   status = send(fd, data_out.c_str(), data_out.size(), 0);
   std::println("send(): written {}/{} bytes", status, data_out.size());

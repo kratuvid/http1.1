@@ -8,13 +8,17 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS YES)
 set(CMAKE_COLOR_DIAGNOSTICS YES)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
-set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
+# set(CMAKE_CXX_COMPILER_LAUNCHER ccache)  # doesn't seem to work in tandem with c++ modules
 
 if(NOT compiler_path)
   set(compiler_path /usr/bin)
 endif()
-set(CMAKE_C_COMPILER ${compiler_path}/clang)
-set(CMAKE_CXX_COMPILER ${compiler_path}/clang++)
+if(NOT CMAKE_C_COMPILER)
+  set(CMAKE_C_COMPILER ${compiler_path}/clang)
+endif()
+if(NOT CMAKE_CXX_COMPILER)
+  set(CMAKE_CXX_COMPILER ${compiler_path}/clang++)
+endif()
 set(CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS ${compiler_path}/clang-scan-deps)
 
 # User variable

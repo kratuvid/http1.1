@@ -6,6 +6,7 @@ import terminfo;
 
 auto main(int argc, char **argv) -> int {
   try {
+    terminfo::reader::m_suppress_logs = false;
     if (argc < 2) {
       terminfo::reader ti;
       std::println();

@@ -28,6 +28,9 @@ export enum class numerical_property_t {
 };
 
 export class reader {
+public:
+  inline static bool m_suppress_logs = true;
+
 private:
   struct header_t {
     DECLARE_HE(magic);
@@ -232,7 +235,7 @@ private:
   auto log(log_type_t type, std::format_string<Args...> fmt, Args &&...args)
       -> void {
     // NOTE: supressing annoying logs
-    if (type == LT_INFO) return;
+    if (m_suppress_logs && type == LT_INFO) return;
     const auto msg = std::format(fmt, std::forward<Args>(args)...);
     std::println(stderr, "{}: terminfo: {}",
                  log_type_stringify[static_cast<int>(type)], msg);

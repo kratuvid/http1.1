@@ -3,6 +3,8 @@ module;
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <atomic>
+#include <bit>
 #include <cstring>
 #include <expected>
 #include <format>
@@ -30,6 +32,10 @@ private:
 public:
   /* Construction and destruction */
   csocket() : m_instance_index(m_instance_counter++) {
+    static_assert(std::endian::native == std::endian::little ||
+                      std::endian::native == std::endian::big,
+                  "Mixed endian systems are unsupported");
+
     m_sockfd = socket(Domain, Type, 0);
     if (m_sockfd == -1)
       HTTP_LOG_FATAL_ERRNO("{}: Socket file descriptor creation failed",
@@ -41,14 +47,14 @@ public:
       this->m_sockaddr.sin6_family = AF_INET6;
     }
 
-    HTTP_LOG_INFO("{}: New csocket created, fd: {}", _log_prefix_early(),
+    HTTP_LOG_INFO("{}: csocket created [fd: {}]", _log_prefix_early(),
                   m_sockfd);
   }
   csocket(const char *address, uint16_t port) : csocket() {
     set_address(address);
     set_port(port);
   }
-  csocket(inX_addr address, uint16_t port) : csocket() {
+  csocket(inX_addr const &address, uint16_t port) : csocket() {
     set_address(address);
     set_port(port);
   }
@@ -58,15 +64,17 @@ public:
 
   csocket &operator=(csocket const &) = delete;
   csocket &operator=(csocket &&other) {
-    m_sockfd = other.m_sockfd;
-    this->m_sockaddr = other.m_sockaddr;
-    m_instance_index = other.m_instance_index;
+    if (this != &other) {
+      m_sockfd = other.m_sockfd;
+      this->m_sockaddr = other.m_sockaddr;
+      m_instance_index = other.m_instance_index;
 
-    other.m_sockfd = 0;
-    std::memset(&this->m_sockaddr, 0, sizeof(this->m_sockaddr));
-    other.m_instance_index = -1;
+      other.m_sockfd = 0;
+      std::memset(&this->m_sockaddr, 0, sizeof(this->m_sockaddr));
+      other.m_instance_index = -1;
+    }
 
-    HTTP_LOG_INFO("{}: Moved csocket", _log_prefix());
+    HTTP_LOG_INFO("{}: csocket moved [fd: {}]", _log_prefix(), m_sockfd);
 
     return *this;
   }
@@ -74,30 +82,32 @@ public:
   ~csocket() {
     if (m_sockfd > 0) {
       if (close(m_sockfd) != 0)
-        HTTP_LOG_ERROR_ERRNO("{}: Couldn't close file descriptor '{}'",
-                             _log_prefix_early(), m_sockfd);
+        HTTP_LOG_ERROR_ERRNO(
+            "{}: Couldn't close the socket file descriptor '{}'",
+            _log_prefix_early(), m_sockfd);
     }
 
-    HTTP_LOG_INFO("{}: Destroyed csocket, fd: {}", _log_prefix(), m_sockfd);
+    HTTP_LOG_INFO("{}: csocket destroyed [fd: {}]", _log_prefix(), m_sockfd);
   }
 
   /* Connection setup */
   auto bind(bool throw_on_failure = true)
     requires(IsServer)
   {
-    static constexpr std::string_view error_format{
-        "{}: Failed to bind a name to the socket"};
+    static constexpr std::format_string<std::string> error_format{
+        "{}: Couldn't bind the socket"};
 
     const auto status =
         ::bind(m_sockfd, reinterpret_cast<const sockaddr *>(&m_sockaddr),
                sizeof(m_sockaddr));
-    if (throw_on_failure && status != 0)
-      HTTP_LOG_FATAL_ERRNO(error_format, _log_prefix());
 
-    if (status == 0) {
-      HTTP_LOG_INFO("{}: Bind succeeded", _log_prefix());
+    if (status == -1) {
+      if (throw_on_failure)
+        HTTP_LOG_FATAL_ERRNO(error_format, _log_prefix());
+      else
+        HTTP_LOG_WARN_ERRNO(error_format, _log_prefix());
     } else {
-      HTTP_LOG_INFO(error_format, _log_prefix());
+      HTTP_LOG_INFO("{}: Bound", _log_prefix());
     }
 
     return status;
@@ -106,17 +116,18 @@ public:
   auto listen(int backlog, bool throw_on_failure = true)
     requires(IsServer && is_type_tcp)
   {
-    static constexpr std::string_view error_format{
-        "{}: Failed to begin listening"};
+    static constexpr std::format_string<std::string> error_format{
+        "{}: Couldn't begin listen on the socket"};
 
     const auto status = ::listen(m_sockfd, backlog);
-    if (throw_on_failure && status != 0)
-      HTTP_LOG_FATAL_ERRNO(error_format, _log_prefix());
 
-    if (status == 0) {
-      HTTP_LOG_INFO("{}: Listening...", _log_prefix());
+    if (status == -1) {
+      if (throw_on_failure)
+        HTTP_LOG_FATAL_ERRNO(error_format, _log_prefix());
+      else
+        HTTP_LOG_WARN_ERRNO(error_format, _log_prefix());
     } else {
-      HTTP_LOG_INFO(error_format, _log_prefix());
+      HTTP_LOG_INFO("{}: Listening", _log_prefix());
     }
 
     return status;
@@ -125,8 +136,8 @@ public:
   auto accept(bool throw_on_failure = true)
     requires(IsServer && is_type_tcp)
   {
-    static constexpr std::string_view error_format{
-        "{}: Failed to accept a new connection"};
+    static constexpr std::format_string<std::string> error_format{
+        "{}: Couldn't accept on the socket"};
 
     HTTP_LOG_INFO("{}: Accepting...", _log_prefix());
 
@@ -136,15 +147,16 @@ public:
     const auto status =
         ::accept(m_sockfd, reinterpret_cast<sockaddr *>(&client_sockaddr),
                  &client_socklen);
-    if (throw_on_failure && status == -1)
-      HTTP_LOG_FATAL_ERRNO(error_format, _log_prefix());
 
-    if (status != -1) {
-      HTTP_LOG_INFO("{}: Accepted a new connection, fd: {}, client: {}:{}",
+    if (status == -1) {
+      if (throw_on_failure)
+        HTTP_LOG_FATAL_ERRNO(error_format, _log_prefix());
+      else
+        HTTP_LOG_WARN_ERRNO(error_format, _log_prefix());
+    } else {
+      HTTP_LOG_INFO("{}: Accepted a new connection [fd: {}, client: {}:{}]",
                     _log_prefix(), status, _get_sinX_addr_any(client_sockaddr),
                     _get_sinX_port_any(client_sockaddr));
-    } else {
-      HTTP_LOG_INFO(error_format, _log_prefix());
     }
 
     struct {
@@ -158,20 +170,22 @@ public:
   auto connect(bool throw_on_failure = true)
     requires(!IsServer)
   {
-    static constexpr std::string_view error_format{"{}: Connection failed"};
+    static constexpr std::format_string<std::string> error_format{
+        "{}: Connection failed"};
 
-    HTTP_LOG_INFO("{}: Attempting connection...", _log_prefix());
+    HTTP_LOG_INFO("{}: Connecting...", _log_prefix());
 
     const auto status =
         ::connect(m_sockfd, reinterpret_cast<sockaddr *>(&m_sockaddr),
                   sizeof(m_sockaddr));
-    if (throw_on_failure && status != 0)
-      HTTP_LOG_FATAL_ERRNO(error_format, _log_prefix());
 
-    if (status == 0) {
-      HTTP_LOG_INFO("{}: Connected!", _log_prefix());
+    if (status == -1) {
+      if (throw_on_failure)
+        HTTP_LOG_FATAL_ERRNO(error_format, _log_prefix());
+      else
+        HTTP_LOG_WARN_ERRNO(error_format, _log_prefix());
     } else {
-      HTTP_LOG_INFO(error_format, _log_prefix());
+      HTTP_LOG_INFO("{}: Connected", _log_prefix());
     }
 
     return status;
@@ -183,50 +197,52 @@ public:
   /* Basic setters and getters */
   auto set_address(const char *address_str) -> void {
     if (!address_str)
-      HTTP_LOG_FATAL("{}: Address is null", _log_prefix());
+      HTTP_LOG_FATAL("{}: Address string can't be null", _log_prefix());
 
     const auto status = inet_pton(Domain, address_str, &_get_sinX_addr());
 
     if (status == 0) {
-      HTTP_LOG_FATAL("{}: {} isn't a valid IPv{} address", _log_prefix(),
-                     address_str, is_domain_ipv4 ? '4' : '6');
+      HTTP_LOG_FATAL("{}: Invalid IPv{} address: {}", _log_prefix(),
+                     _get_domain_str(), address_str);
     } else if (status == -1) {
-      HTTP_LOG_FATAL_ERRNO("{}: {} isn't a valid address family", _log_prefix(),
-                           Domain);
-    }
-
-    HTTP_LOG_INFO("{}: Address altered", _log_prefix());
-  }
-
-  auto set_address(inX_addr address) -> void {
-    if constexpr (Domain == AF_INET) {
-      address.s_addr = htonl(address.s_addr);
+      HTTP_LOG_FATAL("{}: Invalid address family: {}", _log_prefix(), Domain);
     } else {
-      auto it_as_bytes = reinterpret_cast<std::byte *>(&address);
-      std::reverse(it_as_bytes, it_as_bytes + 16);
+      // HTTP_LOG_INFO("{}: Address changed", _log_prefix());
     }
-    set_address_be(address);
   }
 
-  auto set_address_be(inX_addr const &address) -> void {
-    std::memcpy(&_get_sinX_addr(), &address, sizeof(address));
+  /*
+  auto set_address(inX_addr address) -> void {
+    if constexpr (std::endian::native == std::endian::little) {
+      if constexpr (Domain == AF_INET) {
+        address.s_addr = htonl(address.s_addr);
+      } else {
+        auto it_as_bytes = reinterpret_cast<std::byte *>(&address);
+        std::reverse(it_as_bytes, it_as_bytes + 16);
+      }
+    }
+    set_address_big_endian(address);
+    }
+  */
 
-    HTTP_LOG_INFO("{}: Address altered", _log_prefix());
+  auto set_address(inX_addr const &address) -> void {
+    _get_sinX_addr() = address;
+    // std::memcpy(&_get_sinX_addr(), &address, sizeof(address));
+    // HTTP_LOG_INFO("{}: Address changed", _log_prefix());
   }
 
-  auto set_port(uint16_t port) -> void { set_port_be(htons(port)); }
-  auto set_port_be(uint16_t port) -> void {
+  // auto set_port_natural(uint16_t port) -> void { set_port(htons(port)); }
+  auto set_port(uint16_t port) -> void {
     _get_sinX_port() = port;
-
-    HTTP_LOG_INFO("{}: Port altered", _log_prefix());
+    // HTTP_LOG_INFO("{}: Port changed", _log_prefix());
   }
 
   auto get_address() const { return _get_sinX_addr(); };
   auto get_address_str() const { return std::format("{}", _get_sinX_addr()); }
 
-  auto get_port() const {
-    const uint16_t p = _get_sinX_port();
-    return ntohs(p);
+  auto get_port_hostorder() const {
+    const uint16_t x = _get_sinX_port();
+    return ntohs(x);
   }
 
   auto get_fd() const { return m_sockfd; };
@@ -293,13 +309,40 @@ private:
       return sa.sin6_port;
   }
 
+  auto _get_domain_str() const -> std::string_view {
+    using namespace std::literals;
+    if constexpr (is_domain_ipv4)
+      return "4"sv;
+    return "6"sv;
+  }
+
+  auto _get_type_str() const -> std::string_view {
+    using namespace std::literals;
+    if constexpr (is_type_tcp)
+      return "tcp"sv;
+    return "udp"sv;
+  }
+
+  auto _get_mode_str() const -> std::string_view {
+    using namespace std::literals;
+    if constexpr (IsServer)
+      return "server"sv;
+    return "client"sv;
+  }
+
+  auto _log_prefix_basic() const -> std::string {
+    return std::format("csocket(<{}{}{}> #{})", _get_type_str()[0],
+                       _get_domain_str()[0], _get_mode_str()[0],
+                       m_instance_index);
+  }
+
   auto _log_prefix_early() const -> std::string {
-    return std::format("#{}", m_instance_index);
+    return std::format("{}", _log_prefix_basic());
   }
 
   auto _log_prefix() const -> std::string {
-    return std::format("#{}: {}:{}", m_instance_index, get_address_str(),
-                       get_port());
+    return std::format("{}: {}:{}", _log_prefix_basic(), get_address_str(),
+                       get_port_hostorder());
   }
 
 private:
@@ -307,7 +350,7 @@ private:
   sockaddr_inX m_sockaddr;
 
   int m_instance_index;
-  inline static int m_instance_counter = 0;
+  inline static std::atomic_int m_instance_counter = 0;
 };
 
 export {

@@ -7,8 +7,8 @@ namespace http {
 
 export class exception : public std::exception {
 public:
-  exception(std::string_view what) : explanation(what) {}
-  exception(std::string &&what) : explanation(what) {}
+  exception(std::string_view what) : explanation(std::string("http: ") + what.data()) {}
+  exception(std::string &&what) : explanation(std::string("http: ") + what) {}
 
   exception(exception const &) = delete;
   exception(exception &&) = delete;
